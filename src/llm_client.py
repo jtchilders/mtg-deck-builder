@@ -5,33 +5,29 @@ import logging
 import os
 from typing import List, Dict, Any
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging (will be configured by the main script)
 logger = logging.getLogger(__name__)
 
 def load_config():
-   """Load configuration from config.json and environment variables"""
+   """Load configuration from environment variables"""
    config = {}
    
-   # Load from config.json
-   try:
-      with open('config.json', 'r') as f:
-         config = json.load(f)
-   except FileNotFoundError:
-      logger.warning("config.json not found, using environment variables only")
-   
-   # Override with environment variables (environment takes precedence)
+   # Load from environment variables
    if 'OPENAI_API_KEY' in os.environ:
       config['openai_api_key'] = os.environ['OPENAI_API_KEY']
+   if 'OPENAI_API_BASE' in os.environ:
+      config['openai_api_base'] = os.environ['OPENAI_API_BASE']
    
    return config
 
-def chat_prompt(messages: List[Dict[str, str]], retries: int = 3, backoff: float = 1.0) -> str:
+def chat_prompt(messages: List[Dict[str, str]], model: str = 'gpt-4o-mini', temperature: float = 0.7, retries: int = 3, backoff: float = 1.0) -> str:
    """
    Send a chat prompt to OpenAI API with retry logic
    
    Args:
       messages: List of message dictionaries with 'role' and 'content'
+      model: OpenAI model to use
+      temperature: Temperature setting for the model
       retries: Number of retry attempts
       backoff: Initial backoff time in seconds
    
@@ -43,14 +39,18 @@ def chat_prompt(messages: List[Dict[str, str]], retries: int = 3, backoff: float
    """
    config = load_config()
    api_key = config.get('openai_api_key')
-   model = config.get('openai_model', 'gpt-4o-mini')
-   temperature = config.get('openai_temperature', 0.7)
+   api_base = config.get('openai_api_base')
    
    if not api_key:
-      raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable or add it to config.json.")
+      raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
    
-   # Create OpenAI client
-   client = OpenAI(api_key=api_key)
+   # Create OpenAI client with optional base URL
+   client_kwargs = {'api_key': api_key}
+   if api_base:
+      client_kwargs['base_url'] = api_base
+      logger.info(f"Using custom API base URL: {api_base}")
+   
+   client = OpenAI(**client_kwargs)
    
    for attempt in range(retries):
       try:

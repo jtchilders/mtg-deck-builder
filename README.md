@@ -1,18 +1,17 @@
 # MTG Deck Builder
-
+Author: J. Taylor Childers with the help of Cursor AI.
 A Python tool to enrich ManaBox CSV exports with Scryfall data and build decks using AI suggestions.
 
 ## Setup
 
 ```bash
-# Activate virtual environment
-source ./venv/bin/activate
-
 # Install dependencies
 pip install -r requirements.txt
 ```
 
 ## Phase 1: Enrich Collection
+
+I have a collection of cards that I had added to my ManaBox collection. I can export the collection as a CSV file, however it doesn't include card details for deck building, but it does uniquely identify each card. So the first step is to use Scryfall to add the card details to the CSV file.
 
 Enrich your ManaBox CSV with card details from Scryfall:
 
@@ -28,9 +27,10 @@ python enrich_cards.py --input manabox-db.csv --output enriched.csv
 
 ## Phase 2: Deck Building
 
-### Setup OpenAI API
+### Setup OpenAI API Key
 
 ```bash
+export OPENAI_API_BASE="https://api.openai.com/v1"
 export OPENAI_API_KEY="your-api-key-here"
 ```
 

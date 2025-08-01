@@ -10,8 +10,7 @@ import logging
 from typing import List, Optional
 from deck_builder import load_collection, print_card_details
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging (will be configured by the main script)
 logger = logging.getLogger(__name__)
 
 def filter_by_color(df: pd.DataFrame, colors: List[str]) -> pd.DataFrame:

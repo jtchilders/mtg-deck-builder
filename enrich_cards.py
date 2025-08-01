@@ -73,8 +73,8 @@ class EnrichmentProgress:
        return card_id in self.completed_cards
 
 
-def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
-   """Set up logging configuration with both console and file output."""
+def setup_logging(level: str = "INFO") -> None:
+   """Set up logging configuration with console output only."""
    # Create formatter
    formatter = logging.Formatter(
        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -92,12 +92,6 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
    console_handler = logging.StreamHandler(sys.stdout)
    console_handler.setFormatter(formatter)
    root_logger.addHandler(console_handler)
-   
-   # File handler (if specified)
-   if log_file:
-       file_handler = logging.FileHandler(log_file)
-       file_handler.setFormatter(formatter)
-       root_logger.addHandler(file_handler)
 
 
 def enrich_card_data(
@@ -201,14 +195,7 @@ def enrich_card_data(
    return enriched_df
 
 
-def load_config(config_file: str) -> Dict:
-   """Load configuration from JSON file."""
-   try:
-       with open(config_file, 'r') as f:
-           return json.load(f)
-   except Exception as e:
-       logging.warning(f"Could not load config file {config_file}: {e}")
-       return {}
+
 
 
 def main():
@@ -219,8 +206,8 @@ def main():
        epilog="""
 Examples:
   python enrich_cards.py --input manabox-db.csv --output enriched.csv
-  python enrich_cards.py -i manabox-db.csv -o enriched.csv --resume --log-level DEBUG
-  python enrich_cards.py -i manabox-db.csv -o enriched.csv --config config.json
+  python enrich_cards.py -i manabox-db.csv -o enriched.csv --resume -v
+  python enrich_cards.py -i manabox-db.csv -o enriched.csv --rate-limit 0.2 --max-retries 5
        """
    )
    
@@ -237,15 +224,9 @@ Examples:
    )
    
    parser.add_argument(
-       '--log-level',
-       default='INFO',
-       choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-       help='Logging level (default: INFO)'
-   )
-   
-   parser.add_argument(
-       '--log-file',
-       help='Log file path (optional)'
+       '-v', '--verbose',
+       action='store_true',
+       help='Enable verbose (DEBUG) logging'
    )
    
    parser.add_argument(
@@ -275,25 +256,25 @@ Examples:
    )
    
    parser.add_argument(
-       '--config',
-       help='Configuration file path (JSON format)'
+       '--openai-model',
+       default='gpt-4o-mini',
+       help='OpenAI model to use (default: gpt-4o-mini)'
+   )
+   
+   parser.add_argument(
+       '--openai-temperature',
+       type=float,
+       default=0.7,
+       help='OpenAI temperature setting (default: 0.7)'
    )
    
    args = parser.parse_args()
    
-   # Load configuration if provided
-   config = {}
-   if args.config:
-       config = load_config(args.config)
-   
-   # Override config with command line arguments
-   log_level = args.log_level or config.get('log_level', 'INFO')
-   log_file = args.log_file or config.get('log_file')
-   rate_limit = args.rate_limit or config.get('rate_limit', 0.1)
-   max_retries = args.max_retries or config.get('max_retries', 3)
+   # Determine log level based on verbose flag
+   log_level = 'DEBUG' if args.verbose else 'INFO'
    
    # Set up logging
-   setup_logging(log_level, log_file)
+   setup_logging(log_level)
    logger = logging.getLogger(__name__)
    
    # Validate input file exists
@@ -324,8 +305,8 @@ Examples:
            # Enrich the data
            enriched_df = enrich_card_data(
                df, client, progress, 
-               rate_limit=rate_limit, 
-               max_retries=max_retries
+               rate_limit=args.rate_limit, 
+               max_retries=args.max_retries
            )
            
            # Write the enriched data to output file

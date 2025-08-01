@@ -4,8 +4,7 @@ import argparse
 from typing import List, Dict, Optional
 from src.llm_client import chat_prompt, parse_card_suggestions, parse_card_pairs, parse_card_triplets
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging (will be configured in main())
 logger = logging.getLogger(__name__)
 
 def load_collection(path: str = "enriched.csv") -> pd.DataFrame:
@@ -26,7 +25,7 @@ def load_collection(path: str = "enriched.csv") -> pd.DataFrame:
       logger.error(f"Collection file not found: {path}")
       raise
 
-def suggest_complements(seed_names: List[str], df: pd.DataFrame, n: int = 8) -> List[str]:
+def suggest_complements(seed_names: List[str], df: pd.DataFrame, n: int = 8, model: str = 'gpt-4o-mini', temperature: float = 0.7) -> List[str]:
    """
    Suggest complementary cards using LLM
    
@@ -104,7 +103,7 @@ def suggest_complements(seed_names: List[str], df: pd.DataFrame, n: int = 8) -> 
    
    # 3) Call LLM
    try:
-      response = chat_prompt(messages)
+      response = chat_prompt(messages, model=model, temperature=temperature)
       logger.info("Received suggestions from LLM")
       
       # 4) Parse numbered list of names
@@ -116,7 +115,7 @@ def suggest_complements(seed_names: List[str], df: pd.DataFrame, n: int = 8) -> 
       logger.error(f"Failed to get suggestions: {str(e)}")
       return []
 
-def find_synergistic_pairs(df: pd.DataFrame, n_pairs: int = 5) -> List[List[str]]:
+def find_synergistic_pairs(df: pd.DataFrame, n_pairs: int = 5, model: str = 'gpt-4o-mini', temperature: float = 0.7) -> List[List[str]]:
    """
    Find synergistic card pairs using LLM
    
@@ -165,7 +164,7 @@ def find_synergistic_pairs(df: pd.DataFrame, n_pairs: int = 5) -> List[List[str]
    ]
    
    try:
-      response = chat_prompt(messages)
+      response = chat_prompt(messages, model=model, temperature=temperature)
       logger.info("Received synergistic pairs from LLM")
       
       # Parse the response to extract pairs
@@ -177,7 +176,7 @@ def find_synergistic_pairs(df: pd.DataFrame, n_pairs: int = 5) -> List[List[str]
       logger.error(f"Failed to get synergistic pairs: {str(e)}")
       return []
 
-def find_synergistic_triplets(df: pd.DataFrame, n_triplets: int = 3) -> List[List[str]]:
+def find_synergistic_triplets(df: pd.DataFrame, n_triplets: int = 3, model: str = 'gpt-4o-mini', temperature: float = 0.7) -> List[List[str]]:
    """
    Find synergistic card triplets using LLM
    
@@ -226,7 +225,7 @@ def find_synergistic_triplets(df: pd.DataFrame, n_triplets: int = 3) -> List[Lis
    ]
    
    try:
-      response = chat_prompt(messages)
+      response = chat_prompt(messages, model=model, temperature=temperature)
       logger.info("Received synergistic triplets from LLM")
       
       # Parse the response to extract triplets
@@ -378,7 +377,16 @@ def print_card_details(card_name: str, df: pd.DataFrame):
 
 def main():
    """Main function for command-line usage"""
-   parser = argparse.ArgumentParser(description='MTG Deck Builder - Suggest complementary cards and find synergies')
+   parser = argparse.ArgumentParser(
+       description='MTG Deck Builder - Suggest complementary cards and find synergies',
+       formatter_class=argparse.RawDescriptionHelpFormatter,
+       epilog="""
+Examples:
+  python deck_builder.py --seeds "Paladin Class" "Kitesail Cleric" --count 10
+  python deck_builder.py --pairs 5 --details
+  python deck_builder.py --triplets 3 -v --openai-temperature 0.8
+       """
+   )
    parser.add_argument('--seeds', '-s', nargs='+',
                       help='Seed card names to build around')
    parser.add_argument('--count', '-c', type=int, default=8,
@@ -391,8 +399,26 @@ def main():
                       help='Find N synergistic card pairs')
    parser.add_argument('--triplets', '-t', type=int, metavar='N',
                       help='Find N synergistic card triplets')
+   parser.add_argument('-v', '--verbose',
+                      action='store_true',
+                      help='Enable verbose (DEBUG) logging')
+   parser.add_argument('--openai-model',
+                      default='gpt-4o-mini',
+                      help='OpenAI model to use (default: gpt-4o-mini)')
+   parser.add_argument('--openai-temperature',
+                      type=float,
+                      default=0.7,
+                      help='OpenAI temperature setting (default: 0.7)')
    
    args = parser.parse_args()
+   
+   # Set up logging based on verbose flag
+   log_level = 'DEBUG' if args.verbose else 'INFO'
+   logging.basicConfig(
+       level=getattr(logging, log_level),
+       format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+       datefmt='%d-%m %H:%M'
+   )
    
    # Check that at least one mode is specified
    if not args.seeds and not args.pairs and not args.triplets:
@@ -406,7 +432,7 @@ def main():
       if args.seeds:
          # Get suggestions for seed cards
          logger.info(f"Getting {args.count} suggestions for seed cards: {args.seeds}")
-         raw_suggestions = suggest_complements(args.seeds, df, args.count)
+         raw_suggestions = suggest_complements(args.seeds, df, args.count, args.openai_model, args.openai_temperature)
          
          if not raw_suggestions:
             print("No suggestions received from LLM")
@@ -434,7 +460,7 @@ def main():
       elif args.pairs:
          # Find synergistic pairs
          logger.info(f"Finding {args.pairs} synergistic card pairs")
-         raw_pairs = find_synergistic_pairs(df, args.pairs)
+         raw_pairs = find_synergistic_pairs(df, args.pairs, args.openai_model, args.openai_temperature)
          
          if not raw_pairs:
             print("No synergistic pairs found")
@@ -471,7 +497,7 @@ def main():
       elif args.triplets:
          # Find synergistic triplets
          logger.info(f"Finding {args.triplets} synergistic card triplets")
-         raw_triplets = find_synergistic_triplets(df, args.triplets)
+         raw_triplets = find_synergistic_triplets(df, args.triplets, args.openai_model, args.openai_temperature)
          
          if not raw_triplets:
             print("No synergistic triplets found")

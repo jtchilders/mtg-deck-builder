@@ -28,9 +28,9 @@ from typing import Dict, Optional
 import pandas as pd
 from tqdm import tqdm
 
-from data_ingest import read_manabox_csv, validate_card_data
-from scryfall_client import ScryfallClient
-from transformer import extract_card_fields, get_required_fields
+from src.data_ingest import read_manabox_csv, validate_card_data
+from src.scryfall_client import ScryfallClient
+from src.transformer import extract_card_fields, get_required_fields
 
 
 class EnrichmentProgress:

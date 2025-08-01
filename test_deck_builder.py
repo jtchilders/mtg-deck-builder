@@ -5,7 +5,7 @@ Test script for the MTG Deck Builder
 
 import logging
 import sys
-from llm_client import test_connection
+from src.llm_client import test_connection
 from deck_builder import load_collection, suggest_complements, filter_by_collection
 
 # Set up logging

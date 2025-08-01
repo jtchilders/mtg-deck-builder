@@ -74,28 +74,31 @@ python enrich_cards.py -i manabox-db.csv -o enriched.csv --config config.json
 
 ```
 mtg-deck-builder/
-├── data_ingest.py      # CSV reading and validation
-├── scryfall_client.py  # Scryfall API client
-├── transformer.py      # Data extraction and transformation
-├── enrich_cards.py     # Main enrichment script (production-ready)
-├── llm_client.py       # OpenAI API client for deck building
-├── deck_builder.py     # Deck building assistant with LLM integration
-├── collection_filter.py # Collection filtering and exploration utility
-├── test_deck_builder.py # Test script for deck builder functionality
-├── config.json         # Configuration file
-├── requirements.txt    # Python dependencies
-├── manabox-db.csv      # Your ManaBox export
-├── enriched.csv        # Enriched collection data
-└── README.md          # This file
+├── src/                    # Source modules
+│   ├── __init__.py         # Package initialization
+│   ├── data_ingest.py      # CSV reading and validation
+│   ├── scryfall_client.py  # Scryfall API client
+│   ├── transformer.py      # Data extraction and transformation
+│   ├── llm_client.py       # OpenAI API client for deck building
+│   └── collection_filter.py # Collection filtering and exploration utility
+├── enrich_cards.py         # Main enrichment script (production-ready)
+├── deck_builder.py         # Deck building assistant with LLM integration
+├── example_usage.py        # Example usage script
+├── test_deck_builder.py    # Test script for deck builder functionality
+├── config.json             # Configuration file
+├── requirements.txt        # Python dependencies
+├── manabox-db.csv          # Your ManaBox export
+├── enriched.csv            # Enriched collection data
+└── README.md              # This file
 ```
 
 ## Architecture
 
 The production-ready implementation follows a robust architecture:
 
-1. **data_ingest.py**: Reads ManaBox CSV into pandas DataFrame and validates the data
-2. **scryfall_client.py**: Handles HTTP calls to Scryfall API with proper error handling
-3. **transformer.py**: Extracts desired fields from Scryfall JSON responses
+1. **src/data_ingest.py**: Reads ManaBox CSV into pandas DataFrame and validates the data
+2. **src/scryfall_client.py**: Handles HTTP calls to Scryfall API with proper error handling
+3. **src/transformer.py**: Extracts desired fields from Scryfall JSON responses
 4. **enrich_cards.py**: Orchestrates the entire enrichment process with production features
 
 ## Features

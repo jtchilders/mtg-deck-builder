@@ -2,7 +2,7 @@ import pandas as pd
 import logging
 import argparse
 from typing import List, Dict, Optional
-from llm_client import chat_prompt, parse_card_suggestions, parse_card_pairs, parse_card_triplets
+from src.llm_client import chat_prompt, parse_card_suggestions, parse_card_pairs, parse_card_triplets
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

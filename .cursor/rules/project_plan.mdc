@@ -1,0 +1,202 @@
+---
+alwaysApply: true
+---
+
+Here’s the trimmed-down plan for a personal project, focusing only on enrichment and deck-building:
+
+---
+
+## Phase 1: Basic Enrichment Script
+
+* **Goal:** Read your ManaBox CSV, fetch card details from Scryfall, and output an “enriched” CSV.
+* **Steps:**
+
+  1. Set up a Python environment with `pandas` and `requests`.
+  2. Read your CSV with `pandas.read_csv(...)`.
+  3. For each row, call `https://api.scryfall.com/cards/{scryfall_id}`.
+  4. Extract and append fields:
+
+     * `mana_cost`
+     * `type_line`
+     * `oracle_text`
+     * `power` / `toughness` (or `loyalty`)
+  5. Write out `enriched.csv` via `df.to_csv("enriched.csv", index=False)`.
+
+## Phase 2: Deck-Building Features
+
+* **Goal:** Turn your enriched collection into a simple deck-building assistant.
+* **Steps:**
+
+  1. Load the enriched CSV into a Python data structure (e.g., a list of dicts or a `DataFrame`).
+  2. Implement filtering functions by color, converted mana cost (CMC), rarity, set, etc.
+  3. Build helper routines to automatically assemble:
+
+     * A CMC curve–balanced deck
+     * Theme decks (e.g., “aggro red” or “control blue”)
+  4. (Optional) Output decklists in plain text or CSV for easy import into other tools.
+
+Here’s a detailed breakdown for Phase 2, focusing on how to leverage OpenAI’s API to suggest complementary cards and build playable strategies.
+
+---
+
+## 2.1. Core Components & Data Flow
+
+1. **Enriched Collection**
+   – Your `enriched.csv` with all card fields (oracle text, mana cost, power/toughness, etc.)
+2. **LLM Client** (`llm_client.py`)
+   – Wrapper around `openai.ChatCompletion.create()`
+   – Handles prompt templates, rate-limiting, retries, and response parsing
+3. **Deck Builder** (`deck_builder.py`)
+   – Functions to generate a deck or extend a partial list:
+
+   * `suggest_complements(seed_cards: list[str], n:int) → list[str]`
+   * `filter_by_collection(cards: list[str]) → list[str]`
+     – Uses both embedding-based similarity and LLM suggestions
+4. **Embeddings Index** (optional but recommended)
+   – Precompute embeddings for every card’s oracle text using `openai.Embedding.create(…)`
+   – Use an in-memory index (e.g. FAISS or Annoy) to find “similar” cards quickly
+
+Flow for one request:
+
+1. User provides a **seed** (one or more cards, archetype name, or current decklist).
+2. **Deck Builder** pulls up oracle text + key stats for those cards.
+3. It optionally retrieves the top-K similar cards via embeddings.
+4. It constructs a **chat** prompt that includes:
+
+   * System message: your role (“You are an expert MTG deck-building assistant…”)
+   * User message: describes the seed cards, their texts/stats, and asks for N complementary cards.
+5. **LLM Client** calls the API, parses the returned list of card names.
+6. **Deck Builder** filters suggestions to those actually in your collection.
+7. Return the final suggestions (and optionally add them into a “working deck” file).
+
+---
+
+## 2.2. Prompt Design
+
+```txt
+System:
+  You are a Magic: the Gathering deck-builder. Given a partial decklist or a list of seed cards,
+  you will suggest cards that synergize with them to form a coherent strategy.
+
+User:
+  I’m building around these cards:
+  • Paladin Class — {oracle_text}
+  • Kitesail Cleric — {oracle_text}
+
+  Suggest 8 more cards in my collection that complement these.  
+  For each, give:
+  1. Name  
+  2. One-sentence rationale  
+```
+
+* We’ll **inject** each seed’s name and oracle text into the prompt (truncate if too long).
+* We ask for a numbered list so it’s easier to parse.
+
+---
+
+## 2.3. Example Code Snippets
+
+All code below uses **3 spaces** per indent.
+
+### 2.3.1. LLM Client Wrapper (`llm_client.py`)
+
+```python
+import openai
+import time
+
+openai.api_key = "YOUR_KEY"
+
+def chat_prompt(messages, retries=3, backoff=1.0):
+   for attempt in range(retries):
+      try:
+         resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.7,
+         )
+         return resp.choices[0].message["content"]
+      except Exception as e:
+         if attempt + 1 == retries:
+            raise
+         time.sleep(backoff * (2 ** attempt))
+```
+
+### 2.3.2. Deck-Builder Core (`deck_builder.py`)
+
+```python
+import pandas as pd
+from llm_client import chat_prompt
+
+def load_collection(path):
+   return pd.read_csv(path)
+
+def suggest_complements(seed_names, df, n=8):
+   # 1) Gather oracle text snippets
+   seeds = []
+   for name in seed_names:
+      row = df[df["Name"] == name].iloc[0]
+      seeds.append(f"{name}: {row['oracle_text']}")
+
+   # 2) Build prompt
+   messages = [
+      {"role": "system", "content": 
+         "You are an expert MTG deck-builder. Suggest complementary cards from my collection."
+      },
+      {"role": "user", "content":
+         "I’m building around:\n" + "\n".join(f"• {s}" for s in seeds) +
+         f"\nSuggest {n} more cards in my collection, with a one-sentence rationale each."
+      },
+   ]
+
+   # 3) Call LLM
+   response = chat_prompt(messages)
+
+   # 4) Parse numbered list of names
+   suggestions = []
+   for line in response.splitlines():
+      if line.strip() and line[0].isdigit():
+         name = line.split(".", 1)[1].strip().split("—")[0].strip()
+         suggestions.append(name)
+   return suggestions
+
+def filter_by_collection(names, df):
+   return [n for n in names if n in set(df["Name"])]
+
+if __name__ == "__main__":
+   df = load_collection("enriched.csv")
+   seeds = ["Paladin Class", "Kitesail Cleric"]
+   raw = suggest_complements(seeds, df, n=8)
+   final = filter_by_collection(raw, df)
+   print("Suggested:", final)
+```
+
+---
+
+## 2.4. Embeddings-Based Pre-Filtering (Optional)
+
+To reduce prompt size and give the LLM a better starting set, you can:
+
+1. Precompute and store embeddings of every card’s oracle text.
+2. At runtime, get the average embedding of your seed cards.
+3. Use a nearest-neighbor index to pull the top-K similar cards (e.g. 20 cards).
+4. Include just those in your prompt as “Available candidates:”
+
+This helps steer the LLM toward cards you actually own and cuts down on API tokens.
+
+---
+
+## 2.5. Putting It All Together
+
+1. **Iterate** on your prompt until you get clean, parseable output.
+2. **Cache** LLM responses (e.g. in a JSON file) so you don’t pay twice for the same suggestion.
+3. **Build** higher-level helpers:
+
+   * `build_deck(archetype: str)` – uses a textual archetype (“aggro red”) as seed.
+   * `refine_deck(deck: list[str])` – asks for removals/sideboard plans.
+4. **Test** with a handful of different seeds to tune temperature and prompt phrasing.
+
+---
+
+With this design you’ll have a flexible Phase 2 that leverages both your enriched collection and the power of OpenAI’s LLMs to surface synergistic, playable cards directly from your own collection. Let me know if you’d like to see any part fleshed out in more detail!
+
+---

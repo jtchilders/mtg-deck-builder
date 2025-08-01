@@ -1,0 +1,7 @@
+---
+description: Using virtual env for python
+globs:
+alwaysApply: true
+---
+
+Make sure you source the `./venv/bin/activate` before running any command lines.

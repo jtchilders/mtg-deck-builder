@@ -1,0 +1,9 @@
+---
+description: python formatting
+globs: *.py
+alwaysApply: true
+---
+Use 3 space tabs.
+When writing a python script that will be called from the command line (not imported by another script) please do the following:
+Use argparse for organizing command line interfaces, including a single dash simple option for common options.
+Use logging modules to control print out. Dates should be formatted using "DD-MM HH:MM".

@@ -1,3 +1,5 @@
+*.csv
+
 # Environment variables
 .env
 

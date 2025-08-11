@@ -193,7 +193,7 @@ Rarity Breakdown:
    return header + card_list
 
 
-def generate_deck_analysis(df: pd.DataFrame, analysis: Dict[str, Any]) -> str:
+def generate_deck_analysis(df: pd.DataFrame, analysis: Dict[str, Any], model: str = 'gpt-4o-mini', temperature: float = 0.7) -> str:
    """
    Generate comprehensive deck analysis using LLM
    
@@ -272,7 +272,7 @@ Here is the deck to analyze:
    ]
    
    logging.info("Generating deck analysis with LLM...")
-   response = chat_prompt(messages, temperature=0.7)
+   response = chat_prompt(messages, model=model, temperature=temperature)
    
    return response
 
@@ -316,6 +316,14 @@ Examples:
       '-o', '--output',
       help='Output file for the analysis (default: deck_analysis_YYYY-MM-DD_HH-MM.txt)'
    )
+
+   parser.add_argument('--openai-model',
+                      default='gpt-4o-mini',
+                      help='OpenAI model to use (default: gpt-4o-mini)')
+   parser.add_argument('--openai-temperature',
+                      type=float,
+                      default=0.7,
+                      help='OpenAI temperature setting (default: 0.7)')
    
    parser.add_argument(
       '-v', '--verbose',
@@ -346,7 +354,7 @@ Examples:
       
       # Generate LLM analysis
       logging.info("Generating comprehensive deck analysis...")
-      deck_analysis = generate_deck_analysis(df, analysis)
+      deck_analysis = generate_deck_analysis(df, analysis, args.openai_model, args.openai_temperature)
       
       # Determine output file
       if args.output:
